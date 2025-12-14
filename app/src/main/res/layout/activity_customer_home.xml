@@ -76,6 +76,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <Button
+            android:id="@+id/btnHistory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Lịch sử giao dịch"
+            android:textAllCaps="false"
+            android:layout_margin="16dp"/>
+
         <TextView
             android:id="@+id/tvCartSummary"
             android:layout_width="0dp"

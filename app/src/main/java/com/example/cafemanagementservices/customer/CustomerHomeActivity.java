@@ -1,5 +1,6 @@
 package com.example.cafemanagementservices.customer;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,7 +11,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -23,10 +27,13 @@ import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.adapter.MenuAdapter;
 import com.example.cafemanagementservices.firebase.FirebaseService;
 import com.example.cafemanagementservices.model.CartItem;
+import com.example.cafemanagementservices.model.ChiTietMon;
+import com.example.cafemanagementservices.model.DonHang;
 import com.example.cafemanagementservices.model.MonAn;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
 import java.text.DecimalFormat;
@@ -38,6 +45,8 @@ import java.util.Map;
 public class CustomerHomeActivity extends AppCompatActivity {
 
     private RecyclerView rvMenuToday;
+    private ActivityResultLauncher<Intent> checkoutLauncher;
+
     private ProgressBar progressMenuToday;
     private View layoutCartBar;
     private TextView tvCartSummary;
@@ -49,6 +58,11 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     private final Map<String, CartItem> cart = new LinkedHashMap<>();
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
+    private String currentUserName;
+    private String currentUserId;
+
+    private static final int REQ_CHECKOUT = 1001;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,11 +75,30 @@ public class CustomerHomeActivity extends AppCompatActivity {
             v.setPadding(v.getPaddingLeft(), sb.top, v.getPaddingRight(), v.getPaddingBottom());
             return insets;
         });
+        currentUserId = getIntent().getStringExtra("user_id");
 
+        Button btnHistory = findViewById(R.id.btnHistory);
+        btnHistory.setOnClickListener(v -> {
+            Intent i = new Intent(this, HistoryActivity.class);
+            i.putExtra("user_id", currentUserId);
+            startActivity(i);
+        });
         bindViews();
         setupRecycler();
         loadMenuToday();
         setupCartBar();
+        checkoutLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        boolean clearCart = result.getData().getBooleanExtra("clear_cart", false);
+                        if (clearCart) {
+                            cart.clear();
+                            updateCartBar();   // hàm bạn đang dùng để cập nhật tổng tiền / số món
+                        }
+                    }
+                }
+        );
     }
 
     private void bindViews() {
@@ -77,6 +110,7 @@ public class CustomerHomeActivity extends AppCompatActivity {
         btnOrderNow = findViewById(R.id.btnOrderNow);
 
         String name = getIntent().getStringExtra("fullName");
+        currentUserName = name;
         if (name != null && !name.isEmpty()) {
             tvHello.setText("Xin chào, " + name + " 👋");
         }
@@ -120,16 +154,120 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     private void setupCartBar() {
         btnOrderNow.setOnClickListener(v -> {
-            // Sau này bạn push đơn hàng lên Firebase.
-            // Tạm thời show toast.
-            Toast.makeText(this,
-                    "Đã chọn " + cart.size() + " món. Tổng: " + getTongTienFormatted(),
-                    Toast.LENGTH_SHORT).show();
+            if (cart.isEmpty()) {
+                Toast.makeText(this, "Bạn chưa chọn món nào", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Intent intent = new Intent(CustomerHomeActivity.this, CheckoutActivity.class);
+            ArrayList<CartItem> list = new ArrayList<>(cart.values());
+            intent.putExtra(CheckoutActivity.EXTRA_CART, list);
+            intent.putExtra(CheckoutActivity.EXTRA_USER_NAME, currentUserName);
+            checkoutLauncher.launch(intent);
         });
 
-        updateCartBar();
+    }
+    private void showPaymentSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = LayoutInflater.from(this)
+                .inflate(R.layout.bottom_sheet_payment, null);
+        dialog.setContentView(view);
+
+        TextView tvPaymentAmount = view.findViewById(R.id.tvPaymentAmount);
+        Button btnPayMomo = view.findViewById(R.id.btnPayMomo);
+        Button btnPayZalo = view.findViewById(R.id.btnPayZalo);
+        Button btnPayCash = view.findViewById(R.id.btnPayCash);
+
+        // Tính tổng tiền giỏ hàng
+        long tongTien = 0;
+        for (CartItem item : cart.values()) {
+            tongTien += item.getThanhTien();
+        }
+        tvPaymentAmount.setText("Tổng: " + fmt.format(tongTien));
+
+        btnPayMomo.setOnClickListener(v -> {
+            createOrder("MoMo");
+            dialog.dismiss();
+        });
+
+        btnPayZalo.setOnClickListener(v -> {
+            createOrder("ZaloPay");
+            dialog.dismiss();
+        });
+
+        btnPayCash.setOnClickListener(v -> {
+            createOrder("Tiền mặt");
+            dialog.dismiss();
+        });
+
+        dialog.show();
     }
 
+    private void createOrder(String paymentMethod) {
+        if (cart.isEmpty()) {
+            Toast.makeText(this, "Giỏ hàng trống", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Tính tổng
+        long tongTien = 0;
+        for (CartItem item : cart.values()) {
+            tongTien += item.getThanhTien();
+        }
+
+        Map<String, ChiTietMon> itemsMap = new java.util.HashMap<>();
+        for (Map.Entry<String, CartItem> entry : cart.entrySet()) {
+            String monId = entry.getKey();
+            CartItem ci = entry.getValue();
+            itemsMap.put(monId, new ChiTietMon(
+                    ci.monAn.id,
+                    ci.monAn.tenMon,
+                    ci.soLuong,
+                    ci.monAn.gia
+            ));
+        }
+
+        DatabaseReference donHangRef = FirebaseService.getDonHangRef();
+        String orderId = donHangRef.push().getKey();
+        if (orderId == null) {
+            Toast.makeText(this, "Không tạo được ID đơn hàng", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Thời gian hiện tại
+        String now = new java.text.SimpleDateFormat(
+                "yyyy-MM-dd HH:mm",
+                java.util.Locale.getDefault()
+        ).format(new java.util.Date());
+
+        DonHang dh = new DonHang();
+        dh.id = orderId;
+        dh.tenBan = "Mang về"; // sau này nếu có chọn bàn thì thay ở đây
+        dh.tenKhachHang = (currentUserName != null && !currentUserName.isEmpty())
+                ? currentUserName
+                : "Khách lẻ";
+        dh.tongTien = tongTien;
+        dh.thoiGian = now;
+        dh.trangThai = "Chờ xử lý";           // phía quản lý có thể đổi sang "Đã thanh toán" sau
+        dh.phuongThucThanhToan = paymentMethod;
+        dh.items = itemsMap;
+
+        donHangRef.child(orderId).setValue(dh)
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(this,
+                            "Đặt món thành công (" + paymentMethod + ")",
+                            Toast.LENGTH_SHORT).show();
+                    cart.clear();
+                    updateCartBar();
+
+                    // TODO: nếu muốn làm màn "Thanh toán thành công" thì startActivity ở đây
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this,
+                            "Lỗi tạo đơn: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
     private String getTongTienFormatted() {
         long tongTien = 0;
         for (CartItem item : cart.values()) tongTien += item.getThanhTien();
@@ -152,7 +290,6 @@ public class CustomerHomeActivity extends AppCompatActivity {
         }
     }
 
-    /** Hiển thị bottom sheet chọn số lượng cho 1 món */
     private void showAddToCartSheet(MonAn monAn) {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = LayoutInflater.from(this)

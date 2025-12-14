@@ -13,6 +13,7 @@ import com.example.cafemanagementservices.customer.CustomerHomeActivity;
 import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.firebase.FirebaseService;
 import com.example.cafemanagementservices.model.User;
+import com.example.cafemanagementservices.util.HashUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.database.DataSnapshot;
@@ -25,6 +26,7 @@ public class LoginActivity extends AppCompatActivity {
     private MaterialButton btnLogin;
     private TextView tvToRegister;
 
+    private String passwordHash;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,7 +59,7 @@ public class LoginActivity extends AppCompatActivity {
     private void doLogin() {
         String username = edtUsername.getText() != null ? edtUsername.getText().toString().trim() : "";
         String password = edtPassword.getText() != null ? edtPassword.getText().toString().trim() : "";
-
+        passwordHash = HashUtils.md5(password);
         if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Vui lòng nhập đủ tên đăng nhập và mật khẩu", Toast.LENGTH_SHORT).show();
             return;

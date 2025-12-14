@@ -4,124 +4,111 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_home_gradient"
-    android:fitsSystemWindows="true">
+    android:background="#050509"
+    android:padding="16dp">
 
+    <!-- Thông tin chung đơn hàng -->
     <TextView
-        android:id="@+id/tvOrderDetailTitle"
+        android:id="@+id/tvOrderInfo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Chi tiết đơn hàng"
-        android:textSize="18sp"
+        android:text="Đơn #..."
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
         android:textStyle="bold"
-        android:textColor="@color/white"
-        android:layout_margin="16dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
-        android:id="@+id/tvOrderIdDetail"
+        android:id="@+id/tvCustomerInfo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Mã đơn: "
-        android:textColor="@color/textSecondary"
-        android:layout_marginHorizontal="16dp"
-        app:layout_constraintTop_toBottomOf="@id/tvOrderDetailTitle"
+        android:text="Khách hàng: ..."
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/tvOrderInfo"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
-        android:id="@+id/tvOrderInfoDetail"
+        android:id="@+id/tvTableInfo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Bàn - Khách"
-        android:textColor="@color/textSecondary"
-        android:layout_marginHorizontal="16dp"
-        app:layout_constraintTop_toBottomOf="@id/tvOrderIdDetail"
+        android:text="Bàn: ..."
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@id/tvCustomerInfo"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
-        android:id="@+id/tvOrderTimeDetail"
+        android:id="@+id/tvPaymentInfo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Thời gian"
-        android:textColor="@color/textSecondary"
-        android:layout_marginHorizontal="16dp"
-        app:layout_constraintTop_toBottomOf="@id/tvOrderInfoDetail"
+        android:text="PT thanh toán: ..."
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@id/tvTableInfo"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
-        android:id="@+id/tvOrderStatusDetail"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvStatus"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Trạng thái"
-        android:textColor="@color/white"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="4dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginStart="16dp"
-        android:background="@drawable/bg_status_chip"
-        app:layout_constraintTop_toBottomOf="@id/tvOrderTimeDetail"
-        app:layout_constraintStart_toStartOf="parent"/>
+        android:text="Trạng thái: ..."
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@id/tvPaymentInfo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Danh sách món trong đơn (nếu bạn muốn show) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvOrderItems"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="12dp"
-        app:layout_constraintTop_toBottomOf="@id/tvOrderStatusDetail"
-        app:layout_constraintBottom_toTopOf="@id/layoutBottomDetail"
+        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toBottomOf="@id/tvStatus"
+        app:layout_constraintBottom_toTopOf="@id/layoutBottom"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Tổng tiền + nút xác nhận -->
     <LinearLayout
-        android:id="@+id/layoutBottomDetail"
+        android:id="@+id/layoutBottom"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@color/surfaceCard"
-        android:padding="12dp"
+        android:background="#15151B"
+        android:padding="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
-            android:id="@+id/tvOrderTotalDetail"
+            android:id="@+id/tvTotalAmount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Tổng: 0 đ"
-            android:textColor="@color/white"
+            android:textColor="@android:color/white"
             android:textSize="16sp"
             android:textStyle="bold"/>
 
-        <LinearLayout
+        <Button
+            android:id="@+id/btnConfirmCash"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCancelOrder"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Hủy đơn"/>
-
-            <View
-                android:layout_width="8dp"
-                android:layout_height="0dp"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnConfirmOrder"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Xác nhận"/>
-        </LinearLayout>
-
+            android:layout_marginTop="12dp"
+            android:text="Xác nhận đã thu tiền"
+            android:textAllCaps="false"
+            android:textColor="@android:color/black"
+            android:backgroundTint="#FFB74D"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

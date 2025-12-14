@@ -1,6 +1,8 @@
 package com.example.cafemanagementservices.model;
 
-public class MonAn {
+import java.io.Serializable;
+
+public class MonAn implements Serializable {
     public String id;
     public String tenMon;
     public String moTa;

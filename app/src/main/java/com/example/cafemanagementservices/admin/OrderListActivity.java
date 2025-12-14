@@ -33,20 +33,23 @@ public class OrderListActivity extends AppCompatActivity {
 
         rvOrders = findViewById(R.id.rvOrders);
         rvOrders.setLayoutManager(new LinearLayoutManager(this));
+
         adapter = new OrderAdapter(orderList, order -> {
-            // TODO: mở OrderDetailActivity, truyền orderId
+            // mở chi tiết đơn để xác nhận đã thu tiền
             Intent i = new Intent(this, OrderDetailActivity.class);
             i.putExtra("orderId", order.id);
             startActivity(i);
         });
         rvOrders.setAdapter(adapter);
 
-        loadOrders();
+        loadPendingCashOrders();
     }
 
-    private void loadOrders() {
+
+    private void loadPendingCashOrders() {
         FirebaseService.getDonHangRef()
-                .orderByChild("thoiGian")
+                .orderByChild("phuongThucThanhToan")
+                .equalTo(DonHang.PT_TIEN_MAT)   // chỉ lấy đơn tiền mặt
                 .addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -55,7 +58,11 @@ public class OrderListActivity extends AppCompatActivity {
                             DonHang d = child.getValue(DonHang.class);
                             if (d != null) {
                                 d.id = child.getKey();
-                                orderList.add(d);
+
+                                // chỉ add những đơn đang chờ xác nhận
+                                if (DonHang.TRANG_THAI_CHO_XAC_NHAN.equals(d.trangThai)) {
+                                    orderList.add(d);
+                                }
                             }
                         }
                         adapter.notifyDataSetChanged();

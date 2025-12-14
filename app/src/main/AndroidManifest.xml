@@ -50,7 +50,9 @@
         <activity
             android:name=".admin.RevenueReportActivity"
             android:exported="false" />
-
+        <activity
+            android:name=".customer.CheckoutActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

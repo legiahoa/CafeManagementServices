@@ -17,6 +17,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
+import com.example.cafemanagementservices.util.HashUtils;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -60,6 +61,7 @@ public class RegisterActivity extends AppCompatActivity {
         String email = getText(edtEmail);
         String password = getText(edtPassword);
         String confirm = getText(edtConfirmPassword);
+        String passwordHash = HashUtils.md5(password);
 
         // Validate cơ bản
         if (fullName.isEmpty() || username.isEmpty() ||
@@ -94,7 +96,7 @@ public class RegisterActivity extends AppCompatActivity {
                             return;
                         }
 
-                        createUser(fullName, username, email, password);
+                        createUser(fullName, username, email, passwordHash);
                     }
 
                     @Override
