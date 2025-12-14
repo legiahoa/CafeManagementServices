@@ -64,9 +64,7 @@ public class MenuActivity extends AppCompatActivity {
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         progressBar.setVisibility(View.GONE);
-                        Toast.makeText(MenuActivity.this,
-                                "Lỗi tải menu: " + error.getMessage(),
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MenuActivity.this, "Lỗi tải menu: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

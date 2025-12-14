@@ -1,6 +1,5 @@
 package com.example.cafemanagementservices.adapter;
 
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,49 +9,55 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.cafemanagementservices.R;
-import com.example.cafemanagementservices.model.OrderItem;
+import com.example.cafemanagementservices.model.ChiTietMon;
 
 import java.text.DecimalFormat;
 import java.util.List;
 
-public class OrderItemAdapter extends RecyclerView.Adapter<OrderItemAdapter.ItemViewHolder> {
+public class OrderItemAdapter extends RecyclerView.Adapter<OrderItemAdapter.VH> {
 
-    private final List<OrderItem> items;
+    private final List<ChiTietMon> items;
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
-    public OrderItemAdapter(List<OrderItem> items) {
+    public OrderItemAdapter(List<ChiTietMon> items) {
         this.items = items;
     }
 
     @NonNull
     @Override
-    public ItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_order_detail_item, parent, false);
-        return new ItemViewHolder(v);
+                .inflate(R.layout.item_bill, parent, false);
+        return new VH(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ItemViewHolder holder, int position) {
-        OrderItem it = items.get(position);
-        holder.tvTenMon.setText(it.tenMon);
-        holder.tvSoLuong.setText("x" + it.soLuong);
-        holder.tvThanhTien.setText(fmt.format(it.thanhTien));
+    public void onBindViewHolder(@NonNull VH holder, int position) {
+        ChiTietMon item = items.get(position);
+        if (item == null) return;
+
+        holder.tvTenMon.setText(item.tenMon != null ? item.tenMon : "");
+        holder.tvSoLuong.setText("Số lượng: " + item.soLuong);
+        holder.tvDonGia.setText(fmt.format(item.donGia));
+
+        long thanhTien = (long) item.soLuong * item.donGia;
+        holder.tvThanhTien.setText(fmt.format(thanhTien));
     }
 
     @Override
     public int getItemCount() {
-        return items != null ? items.size() : 0;
+        return items.size();
     }
 
-    static class ItemViewHolder extends RecyclerView.ViewHolder {
-        TextView tvTenMon, tvSoLuong, tvThanhTien;
+    static class VH extends RecyclerView.ViewHolder {
+        TextView tvTenMon, tvSoLuong, tvDonGia, tvThanhTien;
 
-        public ItemViewHolder(@NonNull View itemView) {
+        VH(@NonNull View itemView) {
             super(itemView);
-            tvTenMon = itemView.findViewById(R.id.tvTenMonDetail);
-            tvSoLuong = itemView.findViewById(R.id.tvSoLuongDetail);
-            tvThanhTien = itemView.findViewById(R.id.tvThanhTienDetail);
+            tvTenMon = itemView.findViewById(R.id.tvBillItemName);
+            tvSoLuong = itemView.findViewById(R.id.tvBillItemQty);
+            tvDonGia = itemView.findViewById(R.id.tvBillItemPrice);
+            tvThanhTien = itemView.findViewById(R.id.tvBillItemSubtotal);
         }
     }
 }

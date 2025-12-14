@@ -70,8 +70,7 @@ public class TableManageActivity extends AppCompatActivity {
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(TableManageActivity.this,
-                                error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TableManageActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

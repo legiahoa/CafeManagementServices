@@ -2,10 +2,16 @@ package com.example.cafemanagementservices.admin;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,6 +29,7 @@ import java.util.List;
 public class OrderListActivity extends AppCompatActivity {
 
     private RecyclerView rvOrders;
+    private ProgressBar progress;
     private OrderAdapter adapter;
     private final List<DonHang> orderList = new ArrayList<>();
 
@@ -31,25 +38,36 @@ public class OrderListActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_order_list);
 
-        rvOrders = findViewById(R.id.rvOrders);
-        rvOrders.setLayoutManager(new LinearLayoutManager(this));
+        View root = findViewById(R.id.rootOrderList);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets sb = insets.getInsets(WindowInsetsCompat.Type.statusBars());
+            v.setPadding(v.getPaddingLeft(), sb.top, v.getPaddingRight(), v.getPaddingBottom());
+            return insets;
+        });
 
+        rvOrders = findViewById(R.id.rvOrders);
+        progress = findViewById(R.id.progressOrders);
+        ImageView btnBack = findViewById(R.id.btnBack);
+
+        btnBack.setOnClickListener(v -> onBackPressed());
+
+        rvOrders.setLayoutManager(new LinearLayoutManager(this));
         adapter = new OrderAdapter(orderList, order -> {
-            // mở chi tiết đơn để xác nhận đã thu tiền
+            // mở chi tiết đơn
             Intent i = new Intent(this, OrderDetailActivity.class);
             i.putExtra("orderId", order.id);
             startActivity(i);
         });
         rvOrders.setAdapter(adapter);
 
-        loadPendingCashOrders();
+        loadOrders();
     }
 
+    private void loadOrders() {
+        progress.setVisibility(View.VISIBLE);
 
-    private void loadPendingCashOrders() {
         FirebaseService.getDonHangRef()
-                .orderByChild("phuongThucThanhToan")
-                .equalTo(DonHang.PT_TIEN_MAT)   // chỉ lấy đơn tiền mặt
+                .orderByChild("thoiGian")
                 .addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -58,20 +76,17 @@ public class OrderListActivity extends AppCompatActivity {
                             DonHang d = child.getValue(DonHang.class);
                             if (d != null) {
                                 d.id = child.getKey();
-
-                                // chỉ add những đơn đang chờ xác nhận
-                                if (DonHang.TRANG_THAI_CHO_XAC_NHAN.equals(d.trangThai)) {
-                                    orderList.add(d);
-                                }
+                                orderList.add(0, d);
                             }
                         }
+                        progress.setVisibility(View.GONE);
                         adapter.notifyDataSetChanged();
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(OrderListActivity.this,
-                                error.getMessage(), Toast.LENGTH_SHORT).show();
+                        progress.setVisibility(View.GONE);
+                        Toast.makeText(OrderListActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

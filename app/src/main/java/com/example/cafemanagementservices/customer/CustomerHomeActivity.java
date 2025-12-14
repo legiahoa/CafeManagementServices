@@ -1,9 +1,11 @@
 package com.example.cafemanagementservices.customer;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -14,7 +16,6 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -40,6 +41,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class CustomerHomeActivity extends AppCompatActivity {
@@ -58,11 +60,9 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
     private final Map<String, CartItem> cart = new LinkedHashMap<>();
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
+
     private String currentUserName;
     private String currentUserId;
-
-    private static final int REQ_CHECKOUT = 1001;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,18 +75,24 @@ public class CustomerHomeActivity extends AppCompatActivity {
             v.setPadding(v.getPaddingLeft(), sb.top, v.getPaddingRight(), v.getPaddingBottom());
             return insets;
         });
-        currentUserId = getIntent().getStringExtra("user_id");
+
+        readUserFromIntent();
 
         Button btnHistory = findViewById(R.id.btnHistory);
         btnHistory.setOnClickListener(v -> {
             Intent i = new Intent(this, HistoryActivity.class);
             i.putExtra("user_id", currentUserId);
+            i.putExtra("userId", currentUserId);
+            i.putExtra("user_name", currentUserName);
+            i.putExtra("userName", currentUserName);
             startActivity(i);
         });
+
         bindViews();
         setupRecycler();
         loadMenuToday();
         setupCartBar();
+
         checkoutLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -94,11 +100,20 @@ public class CustomerHomeActivity extends AppCompatActivity {
                         boolean clearCart = result.getData().getBooleanExtra("clear_cart", false);
                         if (clearCart) {
                             cart.clear();
-                            updateCartBar();   // hàm bạn đang dùng để cập nhật tổng tiền / số món
+                            updateCartBar();
                         }
                     }
                 }
         );
+    }
+    private void readUserFromIntent() {
+        Intent from = getIntent();
+        currentUserId = from.getStringExtra("userId");
+        if (currentUserId == null) currentUserId = from.getStringExtra("user_id");
+
+        currentUserName = from.getStringExtra("userName");
+        if (currentUserName == null) currentUserName = from.getStringExtra("fullName");
+        if (currentUserName == null) currentUserName = from.getStringExtra("user_name");
     }
 
     private void bindViews() {
@@ -109,10 +124,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
         tvCartSummary = findViewById(R.id.tvCartSummary);
         btnOrderNow = findViewById(R.id.btnOrderNow);
 
-        String name = getIntent().getStringExtra("fullName");
-        currentUserName = name;
-        if (name != null && !name.isEmpty()) {
-            tvHello.setText("Xin chào, " + name + " 👋");
+        if (currentUserName != null && !currentUserName.isEmpty()) {
+            tvHello.setText("Xin chào, " + currentUserName + " 👋");
         }
     }
 
@@ -138,16 +151,14 @@ public class CustomerHomeActivity extends AppCompatActivity {
                         progressMenuToday.setVisibility(View.GONE);
 
                         if (menuList.isEmpty()) {
-                            Toast.makeText(CustomerHomeActivity.this,
-                                    "Không có món nào trong MonAn", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(CustomerHomeActivity.this, "Không có món nào trong MonAn", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         progressMenuToday.setVisibility(View.GONE);
-                        Toast.makeText(CustomerHomeActivity.this,
-                                "Lỗi tải menu: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(CustomerHomeActivity.this, "Lỗi tải menu: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -163,10 +174,14 @@ public class CustomerHomeActivity extends AppCompatActivity {
             ArrayList<CartItem> list = new ArrayList<>(cart.values());
             intent.putExtra(CheckoutActivity.EXTRA_CART, list);
             intent.putExtra(CheckoutActivity.EXTRA_USER_NAME, currentUserName);
+            intent.putExtra(CheckoutActivity.EXTRA_USER_ID, currentUserId);
+            intent.putExtra("userId", currentUserId);
+            intent.putExtra("userName", currentUserName);
+
             checkoutLauncher.launch(intent);
         });
-
     }
+    @SuppressWarnings("unused")
     private void showPaymentSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = LayoutInflater.from(this)
@@ -178,7 +193,6 @@ public class CustomerHomeActivity extends AppCompatActivity {
         Button btnPayZalo = view.findViewById(R.id.btnPayZalo);
         Button btnPayCash = view.findViewById(R.id.btnPayCash);
 
-        // Tính tổng tiền giỏ hàng
         long tongTien = 0;
         for (CartItem item : cart.values()) {
             tongTien += item.getThanhTien();
@@ -208,8 +222,23 @@ public class CustomerHomeActivity extends AppCompatActivity {
             Toast.makeText(this, "Giỏ hàng trống", Toast.LENGTH_SHORT).show();
             return;
         }
+        if ((currentUserName == null || currentUserName.trim().isEmpty())
+                && currentUserId != null && !currentUserId.trim().isEmpty()) {
+            FirebaseService.getTaiKhoanRef().child(currentUserId).child("hoTen")
+                    .get()
+                    .addOnSuccessListener(snap -> {
+                        String hoTen = snap.getValue(String.class);
+                        if (hoTen == null || hoTen.trim().isEmpty()) hoTen = "Khách lẻ";
+                        createOrderInternal(paymentMethod, hoTen);
+                    })
+                    .addOnFailureListener(e -> createOrderInternal(paymentMethod, "Khách lẻ"));
+            return;
+        }
 
-        // Tính tổng
+        createOrderInternal(paymentMethod, currentUserName);
+    }
+
+    private void createOrderInternal(String paymentMethod, String displayName) {
         long tongTien = 0;
         for (CartItem item : cart.values()) {
             tongTien += item.getThanhTien();
@@ -217,9 +246,8 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
         Map<String, ChiTietMon> itemsMap = new java.util.HashMap<>();
         for (Map.Entry<String, CartItem> entry : cart.entrySet()) {
-            String monId = entry.getKey();
             CartItem ci = entry.getValue();
-            itemsMap.put(monId, new ChiTietMon(
+            itemsMap.put(entry.getKey(), new ChiTietMon(
                     ci.monAn.id,
                     ci.monAn.tenMon,
                     ci.soLuong,
@@ -234,44 +262,33 @@ public class CustomerHomeActivity extends AppCompatActivity {
             return;
         }
 
-        // Thời gian hiện tại
         String now = new java.text.SimpleDateFormat(
                 "yyyy-MM-dd HH:mm",
-                java.util.Locale.getDefault()
+                Locale.getDefault()
         ).format(new java.util.Date());
 
         DonHang dh = new DonHang();
         dh.id = orderId;
-        dh.tenBan = "Mang về"; // sau này nếu có chọn bàn thì thay ở đây
-        dh.tenKhachHang = (currentUserName != null && !currentUserName.isEmpty())
-                ? currentUserName
+        dh.userId = currentUserId;
+        dh.tenBan = "Mang về";
+        dh.tenKhachHang = (displayName != null && !displayName.trim().isEmpty())
+                ? displayName.trim()
                 : "Khách lẻ";
         dh.tongTien = tongTien;
         dh.thoiGian = now;
-        dh.trangThai = "Chờ xử lý";           // phía quản lý có thể đổi sang "Đã thanh toán" sau
+        dh.trangThai = "Đã thanh toán";
         dh.phuongThucThanhToan = paymentMethod;
         dh.items = itemsMap;
 
         donHangRef.child(orderId).setValue(dh)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(this,
-                            "Đặt món thành công (" + paymentMethod + ")",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Đặt món thành công (" + paymentMethod + ")", Toast.LENGTH_SHORT).show();
                     cart.clear();
                     updateCartBar();
-
-                    // TODO: nếu muốn làm màn "Thanh toán thành công" thì startActivity ở đây
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this,
-                            "Lỗi tạo đơn: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                });
-    }
-    private String getTongTienFormatted() {
-        long tongTien = 0;
-        for (CartItem item : cart.values()) tongTien += item.getThanhTien();
-        return fmt.format(tongTien);
+                .addOnFailureListener(e -> Toast.makeText(this,
+                        "Lỗi tạo đơn: " + e.getMessage(),
+                        Toast.LENGTH_LONG).show());
     }
 
     private void updateCartBar() {
@@ -313,17 +330,19 @@ public class CustomerHomeActivity extends AppCompatActivity {
 
         tvTenMon.setText(monAn.tenMon);
         tvGiaMon.setText(fmt.format(monAn.gia));
+
         CartItem existing = cart.get(monAn.id);
         final int[] soLuong = {1};
 
         if (existing != null) {
             soLuong[0] = existing.soLuong;
             btnThemGio.setText("Cập nhật giỏ");
-            btnXoaMon.setVisibility(View.VISIBLE);          // cho phép xóa
+            btnXoaMon.setVisibility(View.VISIBLE);
         } else {
             btnThemGio.setText("Thêm vào giỏ");
-            btnXoaMon.setVisibility(View.GONE);            // chưa có trong giỏ thì khỏi hiện
+            btnXoaMon.setVisibility(View.GONE);
         }
+
         tvSoLuong.setText(String.valueOf(soLuong[0]));
         tvThanhTien.setText("Thành tiền: " + fmt.format(monAn.gia * soLuong[0]));
 
@@ -350,19 +369,20 @@ public class CustomerHomeActivity extends AppCompatActivity {
             }
             updateCartBar();
             dialog.dismiss();
-            Toast.makeText(this,
-                    "Đã thêm " + soLuong[0] + " x " + monAn.tenMon + " vào giỏ",
-                    Toast.LENGTH_SHORT).show();
+            showAddToCartSnack(monAn.tenMon, soLuong[0]);
         });
-        // XÓA MÓN KHỎI GIỎ
+
         btnXoaMon.setOnClickListener(v -> {
             cart.remove(monAn.id);
             updateCartBar();
             dialog.dismiss();
-            Toast.makeText(this,
-                    "Đã xóa " + monAn.tenMon + " khỏi giỏ",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Đã xóa " + monAn.tenMon + " khỏi giỏ", Toast.LENGTH_SHORT).show();
         });
+
         dialog.show();
+    }
+
+    private void showAddToCartSnack(String tenMon, int soLuong) {
+        Toast.makeText(this, "Đã thêm " + soLuong + " x " + tenMon + " vào giỏ", Toast.LENGTH_SHORT).show();
     }
 }

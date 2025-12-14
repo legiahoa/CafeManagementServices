@@ -1,10 +1,13 @@
 package com.example.cafemanagementservices.admin;
 
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -12,130 +15,156 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.adapter.OrderItemAdapter;
 import com.example.cafemanagementservices.firebase.FirebaseService;
+import com.example.cafemanagementservices.model.ChiTietMon;
 import com.example.cafemanagementservices.model.DonHang;
-import com.example.cafemanagementservices.model.OrderItem;
-import com.google.android.material.button.MaterialButton;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 
 import java.text.DecimalFormat;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class OrderDetailActivity extends AppCompatActivity {
 
-    private TextView tvOrderId, tvOrderInfo, tvOrderTime, tvOrderStatus, tvOrderTotal;
+    private TextView tvOrderInfo, tvCustomerInfo, tvTableInfo, tvPaymentInfo, tvStatus, tvTotalAmount;
     private RecyclerView rvOrderItems;
-    private MaterialButton btnConfirm, btnCancel;
+    private Button btnConfirmCash;
+
+    private final List<ChiTietMon> itemList = new ArrayList<>();
+    private OrderItemAdapter itemAdapter;
+
+    private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
     private String orderId;
     private DonHang currentOrder;
-    private final List<OrderItem> itemList = new ArrayList<>();
-    private OrderItemAdapter adapter;
-    private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_order_detail);
 
-        orderId = getIntent().getStringExtra("orderId");
-        if (orderId == null || orderId.isEmpty()) {
-            Toast.makeText(this, "Không tìm thấy mã đơn", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
-        initViews();
+        bindViews();
         setupRecycler();
+        setupActions();
         loadOrderDetail();
-
-        btnConfirm.setOnClickListener(v -> updateStatus("HoanTat"));
-        btnCancel.setOnClickListener(v -> updateStatus("DaHuy"));
     }
 
-    private void initViews() {
-        tvOrderId = findViewById(R.id.tvOrderIdDetail);
-        tvOrderInfo = findViewById(R.id.tvOrderInfoDetail);
-        tvOrderTime = findViewById(R.id.tvOrderTimeDetail);
-        tvOrderStatus = findViewById(R.id.tvOrderStatusDetail);
-        tvOrderTotal = findViewById(R.id.tvOrderTotalDetail);
+    private void bindViews() {
+        tvOrderInfo = findViewById(R.id.tvOrderInfo);
+        tvCustomerInfo = findViewById(R.id.tvCustomerInfo);
+        tvTableInfo = findViewById(R.id.tvTableInfo);
+        tvPaymentInfo = findViewById(R.id.tvPaymentInfo);
+        tvStatus = findViewById(R.id.tvStatus);
+        tvTotalAmount = findViewById(R.id.tvTotalAmount);
         rvOrderItems = findViewById(R.id.rvOrderItems);
-        btnConfirm = findViewById(R.id.btnConfirmOrder);
-        btnCancel = findViewById(R.id.btnCancelOrder);
+        btnConfirmCash = findViewById(R.id.btnConfirmCash);
     }
 
     private void setupRecycler() {
         rvOrderItems.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new OrderItemAdapter(itemList);
-        rvOrderItems.setAdapter(adapter);
+        itemAdapter = new OrderItemAdapter(itemList);
+        rvOrderItems.setAdapter(itemAdapter);
+    }
+
+    private void setupActions() {
+        btnConfirmCash.setOnClickListener(v -> confirmCashPayment());
     }
 
     private void loadOrderDetail() {
+        orderId = getIntent().getStringExtra("orderId");
+        if (orderId == null || orderId.trim().isEmpty()) {
+            Toast.makeText(this, "Thiếu orderId", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
         FirebaseService.getDonHangRef()
                 .child(orderId)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
+                .addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        currentOrder = snapshot.getValue(DonHang.class);
-                        if (currentOrder == null) {
-                            Toast.makeText(OrderDetailActivity.this,
-                                    "Đơn hàng không tồn tại", Toast.LENGTH_SHORT).show();
+                        DonHang d = snapshot.getValue(DonHang.class);
+                        if (d == null) {
+                            Toast.makeText(OrderDetailActivity.this, "Không tìm thấy đơn", Toast.LENGTH_SHORT).show();
                             finish();
                             return;
                         }
-
-                        currentOrder.id = snapshot.getKey();
-                        bindOrderToViews();
+                        if (d.id == null || d.id.trim().isEmpty()) d.id = snapshot.getKey();
+                        currentOrder = d;
+                        bindOrderToUI(d);
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(OrderDetailActivity.this,
-                                error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(OrderDetailActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void bindOrderToViews() {
-        tvOrderId.setText("Mã đơn: " + currentOrder.id);
-        tvOrderInfo.setText("Bàn " + currentOrder.tenBan + " - " + currentOrder.tenKhachHang);
-        tvOrderTime.setText(currentOrder.thoiGian);
-        tvOrderStatus.setText(currentOrder.trangThai);
-        tvOrderTotal.setText("Tổng: " + fmt.format(currentOrder.tongTien));
+    private void bindOrderToUI(DonHang d) {
+        tvOrderInfo.setText("Đơn #" + d.id + (d.thoiGian != null ? " • " + d.thoiGian : ""));
+        tvCustomerInfo.setText("Khách hàng: " + (d.tenKhachHang != null ? d.tenKhachHang : ""));
+        tvTableInfo.setText("Bàn: " + ((d.tenBan == null || d.tenBan.isEmpty()) ? "Mang về" : d.tenBan));
+        tvPaymentInfo.setText("PT thanh toán: " + (d.phuongThucThanhToan != null ? d.phuongThucThanhToan : ""));
+        tvStatus.setText("Trạng thái: " + (d.trangThai != null ? d.trangThai : ""));
+        tvTotalAmount.setText("Tổng: " + fmt.format(d.tongTien));
 
-        // load danh sách món
         itemList.clear();
-        if (currentOrder.danhSachMon != null) {
-            for (Map.Entry<String, OrderItem> e : currentOrder.danhSachMon.entrySet()) {
-                itemList.add(e.getValue());
-            }
-        }
-        adapter.notifyDataSetChanged();
+        if (d.items != null) itemList.addAll(d.items.values());
+        itemAdapter.notifyDataSetChanged();
 
-        // enable/disable nút theo trạng thái
-        boolean done = "HoanTat".equals(currentOrder.trangThai) ||
-                "DaHuy".equals(currentOrder.trangThai);
-        btnConfirm.setEnabled(!done);
-        btnCancel.setEnabled(!done);
+        boolean isCash = isCashMethod(d.phuongThucThanhToan);
+        boolean isPaid = isPaidStatus(d.trangThai);
+
+        if (isCash && !isPaid) btnConfirmCash.setVisibility(View.VISIBLE);
+        else btnConfirmCash.setVisibility(View.GONE);
     }
 
-    private void updateStatus(String newStatus) {
+    private void confirmCashPayment() {
         if (currentOrder == null) return;
 
-        FirebaseService.getDonHangRef()
-                .child(currentOrder.id)
-                .child("trangThai")
-                .setValue(newStatus)
-                .addOnSuccessListener(unused -> {
-                    currentOrder.trangThai = newStatus;
-                    tvOrderStatus.setText(newStatus);
-                    bindOrderToViews();
-                    Toast.makeText(this, "Cập nhật trạng thái thành công", Toast.LENGTH_SHORT).show();
+        new AlertDialog.Builder(this)
+                .setTitle("Xác nhận đã thu tiền?")
+                .setMessage("Đơn #" + currentOrder.id + "\nSố tiền: " + fmt.format(currentOrder.tongTien))
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Xác nhận", (dialog, which) -> {
+                    FirebaseService.getDonHangRef()
+                            .child(currentOrder.id)
+                            .child("trangThai")
+                            .setValue("Đã thanh toán")
+                            .addOnSuccessListener(unused -> {
+                                Toast.makeText(this, "Đã cập nhật: Đã thanh toán", Toast.LENGTH_SHORT).show();
+                                currentOrder.trangThai = "Đã thanh toán";
+                                tvStatus.setText("Trạng thái: Đã thanh toán");
+
+                                btnConfirmCash.setEnabled(false);
+                                btnConfirmCash.setVisibility(View.GONE);
+                            })
+                            .addOnFailureListener(e -> Toast.makeText(this,
+                                    "Lỗi cập nhật: " + e.getMessage(), Toast.LENGTH_LONG).show());
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show());
+                .show();
+    }
+
+    private boolean isCashMethod(String pmRaw) {
+        String pm = norm(pmRaw);
+        return pm.contains("tien mat") || DonHang.PT_TIEN_MAT.equalsIgnoreCase(pmRaw);
+    }
+
+    private boolean isPaidStatus(String stRaw) {
+        String st = norm(stRaw);
+        return st.contains("da thanh toan")
+                || st.contains("hoan tat")
+                || DonHang.TRANG_THAI_THANH_CONG.equalsIgnoreCase(stRaw);
+    }
+
+    private static String norm(String s) {
+        if (s == null) return "";
+        String t = s.trim().toLowerCase();
+        t = Normalizer.normalize(t, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        return t.replaceAll("\\s+", " ");
     }
 }

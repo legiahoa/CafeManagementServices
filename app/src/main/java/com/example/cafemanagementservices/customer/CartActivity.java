@@ -98,7 +98,6 @@ public class CartActivity extends AppCompatActivity {
                             Ban b = child.getValue(Ban.class);
                             if (b != null) {
                                 b.id = child.getKey();
-                                // filter nếu cần: chỉ bàn "Trong"
                                 banList.add(b);
                                 tenBanList.add(b.tenBan + " (" + b.khuVuc + ")");
                             }
@@ -166,7 +165,7 @@ public class CartActivity extends AppCompatActivity {
                 .setValue(order)
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(CartActivity.this, "Đặt món thành công!", Toast.LENGTH_SHORT).show();
-                    finish(); // quay lại màn trước
+                    finish();
                 })
                 .addOnFailureListener(e -> {
                     btnPlaceOrder.setEnabled(true);

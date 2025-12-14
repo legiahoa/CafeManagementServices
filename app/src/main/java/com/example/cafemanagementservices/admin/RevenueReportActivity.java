@@ -23,7 +23,7 @@ public class RevenueReportActivity extends AppCompatActivity {
 
     private TextView tvSelectedDate, tvTotalRevenue;
     private MaterialButton btnPickDate;
-    private String currentDateFilter; // "yyyy-MM-dd"
+    private String currentDateFilter;
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
     @Override
@@ -64,8 +64,6 @@ public class RevenueReportActivity extends AppCompatActivity {
                             DonHang d = child.getValue(DonHang.class);
                             if (d == null) continue;
                             if (d.thoiGian == null || d.trangThai == null) continue;
-
-                            // lọc theo ngày + trạng thái HoanTat
                             if (d.trangThai.equals("HoanTat") &&
                                     d.thoiGian.startsWith(date)) {
                                 total += d.tongTien;
@@ -76,8 +74,7 @@ public class RevenueReportActivity extends AppCompatActivity {
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(RevenueReportActivity.this,
-                                error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(RevenueReportActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

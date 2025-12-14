@@ -1,61 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="#15151B"
+    app:cardCornerRadius="12dp"
+    app:cardUseCompatPadding="true">
 
-    <!-- Hàng dữ liệu -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingVertical="6dp">
+        android:orientation="vertical"
+        android:padding="12dp">
 
+        <!-- Tên món -->
         <TextView
             android:id="@+id/tvBillItemName"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="2"
             android:text="Tên món"
             android:textColor="@android:color/white"
-            android:textSize="14sp" />
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tvBillItemQty"
-            android:layout_width="0dp"
+        <!-- Dòng số lượng + đơn giá -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="3"
-            android:textColor="@android:color/white"
-            android:textSize="14sp" />
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
 
-        <TextView
-            android:id="@+id/tvBillItemPrice"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="end"
-            android:text="35,000 đ"
-            android:textColor="@android:color/white"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvBillItemQty"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Số lượng: 1"
+                android:textColor="#CFD8DC"
+                android:textSize="14sp" />
 
+            <TextView
+                android:id="@+id/tvBillItemPrice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="35,000 đ"
+                android:textColor="#CFD8DC"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Thành tiền -->
         <TextView
             android:id="@+id/tvBillItemSubtotal"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="end"
-            android:text="105,000 đ"
+            android:layout_marginTop="2dp"
+            android:text="35,000 đ"
             android:textColor="#FFB74D"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Gạch chân ngăn cách hàng -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#222222" />
-
-</LinearLayout>
+</androidx.cardview.widget.CardView>

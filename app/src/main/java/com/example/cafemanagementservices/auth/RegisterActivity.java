@@ -2,7 +2,6 @@ package com.example.cafemanagementservices.auth;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -81,8 +80,6 @@ public class RegisterActivity extends AppCompatActivity {
         }
 
         btnRegister.setEnabled(false);
-
-        // Kiểm tra trùng tên đăng nhập
         FirebaseService.getTaiKhoanRef()
                 .orderByChild("tenDangNhap")
                 .equalTo(username)
@@ -91,8 +88,7 @@ public class RegisterActivity extends AppCompatActivity {
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
                         if (snapshot.hasChildren()) {
                             btnRegister.setEnabled(true);
-                            Toast.makeText(RegisterActivity.this,
-                                    "Tên đăng nhập đã tồn tại", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(RegisterActivity.this, "Tên đăng nhập đã tồn tại", Toast.LENGTH_SHORT).show();
                             return;
                         }
 
@@ -102,8 +98,7 @@ public class RegisterActivity extends AppCompatActivity {
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         btnRegister.setEnabled(true);
-                        Toast.makeText(RegisterActivity.this,
-                                "Lỗi: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(RegisterActivity.this, "Lỗi: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -118,22 +113,21 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // Mặc định role = KhachHang
+
         User u = new User(
                 uid,
                 username,
                 fullName,
                 email,
                 "KhachHang",
-                password      // lưu plaintext cho đơn giản theo cách bạn đang login
+                password
         );
 
         FirebaseService.getTaiKhoanRef()
                 .child(uid)
                 .setValue(u)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(RegisterActivity.this,
-                            "Đăng ký thành công!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(RegisterActivity.this, "Đăng ký thành công!", Toast.LENGTH_SHORT).show();
 
                     // Quay về Login, prefill username
                     Intent i = new Intent(RegisterActivity.this, LoginActivity.class);
@@ -143,8 +137,7 @@ public class RegisterActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     btnRegister.setEnabled(true);
-                    Toast.makeText(RegisterActivity.this,
-                            "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(RegisterActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 

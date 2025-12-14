@@ -1,12 +1,10 @@
 package com.example.cafemanagementservices.customer;
 
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,29 +20,30 @@ import com.example.cafemanagementservices.firebase.FirebaseService;
 import com.example.cafemanagementservices.model.CartItem;
 import com.example.cafemanagementservices.model.ChiTietMon;
 import com.example.cafemanagementservices.model.DonHang;
-import com.example.cafemanagementservices.ui.PaymentBottomSheet;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.database.DatabaseReference;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class CheckoutActivity extends AppCompatActivity implements PaymentBottomSheet.OnPaymentResultListener {
+public class CheckoutActivity extends AppCompatActivity {
 
     public static final String EXTRA_CART = "cart_items";
     public static final String EXTRA_USER_NAME = "user_name";
-    public static final String EXTRA_USER_ID    = "extra_user_id";
+    public static final String EXTRA_USER_ID = "extra_user_id";
+
     private Button btnBack;
     private TextView tvBillTotal;
     private Button btnThanhToan;
-    private DonHang currentOrder;
     private RecyclerView rvBillItems;
-    private List<CartItem> cartItems = new ArrayList<>();
+
+    private final ArrayList<CartItem> cartItems = new ArrayList<>();
     private String currentUserName;
+    private String currentUserId;
+
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
     @Override
@@ -70,7 +69,14 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
 
     private void getDataFromIntent() {
         Intent i = getIntent();
+
         currentUserName = i.getStringExtra(EXTRA_USER_NAME);
+        if (currentUserName == null) currentUserName = i.getStringExtra("userName");
+        if (currentUserName == null) currentUserName = i.getStringExtra("fullName");
+
+        currentUserId = i.getStringExtra(EXTRA_USER_ID);
+        if (currentUserId == null) currentUserId = i.getStringExtra("userId");
+        if (currentUserId == null) currentUserId = i.getStringExtra("user_id");
 
         ArrayList<CartItem> list = (ArrayList<CartItem>) i.getSerializableExtra(EXTRA_CART);
         if (list != null) {
@@ -86,13 +92,10 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
 
     private void updateTotal() {
         long sum = 0;
-        for (CartItem ci : cartItems) {
-            sum += ci.getThanhTien();
-        }
+        for (CartItem ci : cartItems) sum += ci.getThanhTien();
         tvBillTotal.setText("Tổng: " + fmt.format(sum));
     }
 
-    /** Dialog xác nhận khi quay lại màn chọn món */
     private void confirmBackToMenu() {
         new AlertDialog.Builder(this)
                 .setTitle("Quay lại chọn món?")
@@ -107,9 +110,6 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
                 .show();
     }
 
-
-    // ====== THANH TOÁN =======
-
     private void showPaymentSheet() {
         if (cartItems.isEmpty()) {
             Toast.makeText(this, "Giỏ hàng trống", Toast.LENGTH_SHORT).show();
@@ -117,8 +117,7 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
         }
 
         BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View view = LayoutInflater.from(this)
-                .inflate(R.layout.bottom_sheet_payment, null);
+        View view = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_payment, null);
         dialog.setContentView(view);
 
         TextView tvPaymentAmount = view.findViewById(R.id.tvPaymentAmount);
@@ -127,42 +126,50 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
         Button btnPayCash = view.findViewById(R.id.btnPayCash);
 
         long tongTien = 0;
-        for (CartItem item : cartItems) {
-            tongTien += item.getThanhTien();
-        }
+        for (CartItem item : cartItems) tongTien += item.getThanhTien();
         tvPaymentAmount.setText("Tổng: " + fmt.format(tongTien));
 
-        btnPayMomo.setOnClickListener(v -> {
-            createOrder("MoMo");
-            dialog.dismiss();
-        });
-
-        btnPayZalo.setOnClickListener(v -> {
-            createOrder("ZaloPay");
-            dialog.dismiss();
-        });
-
-        btnPayCash.setOnClickListener(v -> {
-            createOrder("Tiền mặt");
-            dialog.dismiss();
-        });
+        btnPayMomo.setOnClickListener(v -> { createOrder("MoMo"); dialog.dismiss(); });
+        btnPayZalo.setOnClickListener(v -> { createOrder("ZaloPay"); dialog.dismiss(); });
+        btnPayCash.setOnClickListener(v -> { createOrder("Tiền mặt"); dialog.dismiss(); });
 
         dialog.show();
     }
 
     private void createOrder(String paymentMethod) {
-        if (cartItems.isEmpty()) {
-            Toast.makeText(this, "Giỏ hàng trống", Toast.LENGTH_SHORT).show();
+        if (cartItems.isEmpty()) return;
+
+        if (currentUserId != null && !currentUserId.trim().isEmpty()) {
+            FirebaseService.getTaiKhoanRef().child(currentUserId).child("hoTen")
+                    .get()
+                    .addOnSuccessListener(snap -> {
+                        String hoTen = snap.getValue(String.class);
+                        if (hoTen == null || hoTen.trim().isEmpty()) hoTen = currentUserName;
+                        if (hoTen == null || hoTen.trim().isEmpty()) hoTen = "Khách lẻ";
+                        saveOrder(paymentMethod, hoTen.trim());
+                    })
+                    .addOnFailureListener(e -> {
+                        String hoTen = (currentUserName != null && !currentUserName.trim().isEmpty())
+                                ? currentUserName.trim()
+                                : "Khách lẻ";
+                        saveOrder(paymentMethod, hoTen);
+                    });
             return;
         }
 
+        String hoTen = (currentUserName != null && !currentUserName.trim().isEmpty())
+                ? currentUserName.trim()
+                : "Khách lẻ";
+        saveOrder(paymentMethod, hoTen);
+    }
+
+    private void saveOrder(String paymentMethod, String displayName) {
         long tongTien = 0;
         for (CartItem ci : cartItems) tongTien += ci.getThanhTien();
 
         Map<String, ChiTietMon> itemsMap = new HashMap<>();
         for (CartItem ci : cartItems) {
-            itemsMap.put(ci.monAn.id,
-                    new ChiTietMon(ci.monAn.id, ci.monAn.tenMon, ci.soLuong, ci.monAn.gia));
+            itemsMap.put(ci.monAn.id, new ChiTietMon(ci.monAn.id, ci.monAn.tenMon, ci.soLuong, ci.monAn.gia));
         }
 
         DatabaseReference donHangRef = FirebaseService.getDonHangRef();
@@ -172,62 +179,36 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentBottom
             return;
         }
 
-        String now = new java.text.SimpleDateFormat(
-                "yyyy-MM-dd HH:mm",
-                Locale.getDefault()
-        ).format(new java.util.Date());
+        String now = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                .format(new java.util.Date());
+
+        String status = "Tiền mặt".equalsIgnoreCase(paymentMethod)
+                ? "Chờ thu tiền"
+                : "Đã thanh toán";
 
         DonHang dh = new DonHang();
         dh.id = orderId;
+        dh.userId = currentUserId;
         dh.tenBan = "Mang về";
-        dh.tenKhachHang = (currentUserName != null && !currentUserName.isEmpty())
-                ? currentUserName
-                : "Khách lẻ";
+        dh.tenKhachHang = displayName;
         dh.tongTien = tongTien;
         dh.thoiGian = now;
-        dh.trangThai = "Chờ xử lý";
+        dh.trangThai = status;
         dh.phuongThucThanhToan = paymentMethod;
         dh.items = itemsMap;
 
         donHangRef.child(orderId).setValue(dh)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(this,
-                            "Đặt món & thanh toán (" + paymentMethod + ") thành công",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Tiền mặt".equalsIgnoreCase(paymentMethod)
+                            ? "Đặt món thành công (chờ thu tiền)"
+                            : "Đặt món & thanh toán thành công", Toast.LENGTH_SHORT).show();
 
                     Intent data = new Intent();
                     data.putExtra("clear_cart", true);
                     setResult(RESULT_OK, data);
-                    finish();   // quay lại màn chọn món
+                    finish();
                 })
                 .addOnFailureListener(e ->
-                        Toast.makeText(this, "Lỗi tạo đơn: " + e.getMessage(),
-                                Toast.LENGTH_LONG).show());
-    }
-    private void showPaymentSheet() {
-        if (currentOrder == null) return;
-
-        long tongTien = currentOrder.tongTien;
-
-        PaymentBottomSheet sheet = PaymentBottomSheet.newInstance(currentOrder, tongTien);
-        sheet.show(getSupportFragmentManager(), "PaymentSheet");
-    }
-
-    // gọi hàm này khi bấm nút "Thanh toán" ở màn hóa đơn
-    private void setupActions() {
-        Button btnThanhToan = findViewById(R.id.btnThanhToan);
-        btnThanhToan.setOnClickListener(v -> showPaymentSheet());
-    }
-
-    // ===== callback từ BottomSheet =====
-    @Override
-    public void onPaymentFinished(boolean success, String message) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-
-        if (success) {
-            // clear giỏ, quay lại home
-            setResult(RESULT_OK);
-            finish();
-        }
+                        Toast.makeText(this, "Lỗi tạo đơn: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 }

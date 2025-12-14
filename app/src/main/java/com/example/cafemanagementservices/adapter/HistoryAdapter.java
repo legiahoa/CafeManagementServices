@@ -1,6 +1,5 @@
 package com.example.cafemanagementservices.adapter;
 
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,40 +13,51 @@ import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.model.DonHang;
 
 import java.text.DecimalFormat;
+import java.text.Normalizer;
 import java.util.List;
 
-public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder> {
+public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.VH> {
+
+    public interface OnOrderClickListener {
+        void onOrderClick(DonHang order);
+    }
 
     private final List<DonHang> orders;
+    private final OnOrderClickListener listener;
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
-    public HistoryAdapter(List<DonHang> orders) {
+    public HistoryAdapter(List<DonHang> orders, OnOrderClickListener listener) {
         this.orders = orders;
+        this.listener = listener;
     }
 
     @NonNull
     @Override
-    public HistoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_history_order, parent, false);
-        return new HistoryViewHolder(v);
+        return new VH(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull HistoryViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull VH holder, int position) {
         DonHang d = orders.get(position);
         holder.bind(d, fmt);
+
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null && d != null) listener.onOrderClick(d);
+        });
     }
 
     @Override
     public int getItemCount() {
-        return orders != null ? orders.size() : 0;
+        return orders == null ? 0 : orders.size();
     }
 
-    static class HistoryViewHolder extends RecyclerView.ViewHolder {
+    static class VH extends RecyclerView.ViewHolder {
         TextView tvOrderTime, tvOrderTable, tvOrderTotal, tvOrderMethod, tvOrderStatus;
 
-        HistoryViewHolder(@NonNull View itemView) {
+        VH(@NonNull View itemView) {
             super(itemView);
             tvOrderTime   = itemView.findViewById(R.id.tvOrderTime);
             tvOrderTable  = itemView.findViewById(R.id.tvOrderTable);
@@ -57,54 +67,101 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.HistoryV
         }
 
         void bind(DonHang d, DecimalFormat fmt) {
-            tvOrderTime.setText(d.thoiGian);
-            tvOrderTable.setText("Bàn " + d.tenBan + " - " + d.tenKhachHang);
+            if (d == null) return;
+
+            tvOrderTime.setText(d.thoiGian != null ? d.thoiGian : "");
+
+            String tenBan = d.tenBan != null ? d.tenBan : "";
+            String tenKhach = (d.tenKhachHang != null && !d.tenKhachHang.trim().isEmpty())
+                    ? d.tenKhachHang.trim()
+                    : "Khách lẻ";
+
+            String banNorm = norm(tenBan);
+            if (banNorm.isEmpty() || banNorm.contains("mang ve")) {
+                tvOrderTable.setText("Mang về - " + tenKhach);
+            } else {
+                tvOrderTable.setText("Bàn " + tenBan + " - " + tenKhach);
+            }
+
             tvOrderTotal.setText("Tổng: " + fmt.format(d.tongTien));
 
-            // Phương thức
+            String pmRaw = d.phuongThucThanhToan != null ? d.phuongThucThanhToan : "";
+            String pm = norm(pmRaw);
+
+            boolean isCash = pm.contains("tien mat")
+                    || DonHang.PT_TIEN_MAT.equalsIgnoreCase(pmRaw);
+
             String methodText;
-            switch (d.phuongThucThanhToan) {
-                case DonHang.PT_MOMO:
-                    methodText = "Thanh toán: MoMo";
-                    break;
-                case DonHang.PT_ZALOPAY:
-                    methodText = "Thanh toán: ZaloPay";
-                    break;
-                case DonHang.PT_TIEN_MAT:
-                    methodText = "Thanh toán: Tiền mặt";
-                    break;
-                default:
-                    methodText = "Thanh toán: -";
-            }
+            if (isCash) methodText = "Thanh toán: Tiền mặt";
+            else if (pm.contains("momo") || DonHang.PT_MOMO.equalsIgnoreCase(pmRaw)) methodText = "Thanh toán: MoMo";
+            else if (pm.contains("zalo") || pm.contains("zalopay") || DonHang.PT_ZALOPAY.equalsIgnoreCase(pmRaw)) methodText = "Thanh toán: ZaloPay";
+            else methodText = "Thanh toán: -";
+
             tvOrderMethod.setText(methodText);
 
-            // Trạng thái
+            String stRaw = d.trangThai != null ? d.trangThai : "";
+            String st = norm(stRaw);
+
             String statusText;
             int color;
-            Resources res = itemView.getResources();
-            switch (d.trangThai) {
-                case DonHang.TRANG_THAI_CHO_XAC_NHAN:
-                    statusText = "Trạng thái: Đang chờ xác nhận";
-                    color = Color.YELLOW;
-                    break;
-                case DonHang.TRANG_THAI_THANH_CONG:
-                    statusText = "Trạng thái: Thành công";
-                    color = Color.GREEN;
-                    break;
-                case DonHang.TRANG_THAI_THAT_BAI:
-                    statusText = "Trạng thái: Thất bại";
-                    color = Color.RED;
-                    break;
-                case DonHang.TRANG_THAI_DA_HUY:
-                    statusText = "Trạng thái: Đã hủy";
-                    color = Color.GRAY;
-                    break;
-                default:
-                    statusText = "Trạng thái: -";
-                    color = Color.WHITE;
+
+            if (st.contains("da thanh toan")
+                    || st.contains("thanh cong")
+                    || st.contains("hoan tat")
+                    || DonHang.TRANG_THAI_THANH_CONG.equalsIgnoreCase(stRaw)) {
+
+                statusText = "Trạng thái: Đã thanh toán";
+                color = 0xFF66BB6A;
+
             }
+            else if (st.contains("cho")
+                    || st.contains("thu tien")
+                    || DonHang.TRANG_THAI_CHO_THANH_TOAN.equalsIgnoreCase(stRaw)
+                    || DonHang.TRANG_THAI_CHO_XAC_NHAN.equalsIgnoreCase(stRaw)) {
+
+                if (isCash) statusText = "Trạng thái: Chờ thu tiền";
+                else statusText = "Trạng thái: " + (stRaw.isEmpty() ? "Đang chờ" : stRaw);
+
+                color = 0xFFFFB74D;
+
+            }
+            else if (st.contains("huy") || DonHang.TRANG_THAI_DA_HUY.equalsIgnoreCase(stRaw)) {
+
+                statusText = "Trạng thái: Đã hủy";
+                color = 0xFFE57373;
+
+            }
+            else if (st.contains("that bai") || st.contains("fail") || DonHang.TRANG_THAI_THAT_BAI.equalsIgnoreCase(stRaw)) {
+
+                statusText = "Trạng thái: Thất bại";
+                color = Color.RED;
+
+            }
+            else if (stRaw == null || stRaw.trim().isEmpty()) {
+
+                if (isCash) {
+                    statusText = "Trạng thái: Chờ thu tiền";
+                    color = 0xFFFFB74D;
+                } else {
+                    statusText = "Trạng thái: Đã thanh toán";
+                    color = 0xFF66BB6A;
+                }
+
+            } else {
+                statusText = "Trạng thái: " + stRaw;
+                color = Color.WHITE;
+            }
+
             tvOrderStatus.setText(statusText);
             tvOrderStatus.setTextColor(color);
+        }
+
+        private static String norm(String s) {
+            if (s == null) return "";
+            String t = s.trim().toLowerCase();
+            t = Normalizer.normalize(t, Normalizer.Form.NFD)
+                    .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+            return t.replaceAll("\\s+", " ");
         }
     }
 }

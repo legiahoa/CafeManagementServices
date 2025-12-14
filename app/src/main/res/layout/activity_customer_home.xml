@@ -4,7 +4,8 @@
     android:id="@+id/rootCustomerHome"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#050509">
+    android:background="#050509"
+    android:fitsSystemWindows="true">
 
     <!-- Greeting -->
     <TextView
@@ -43,7 +44,7 @@
         android:layout_height="0dp"
         android:padding="8dp"
         app:layout_constraintTop_toBottomOf="@id/tvSubTitle"
-        app:layout_constraintBottom_toTopOf="@id/layoutCartBar"
+        app:layout_constraintBottom_toTopOf="@id/layoutBottom"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -59,48 +60,58 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Thanh giỏ hàng dưới màn -->
+    <!-- Khu vực đáy màn hình: Lịch sử + thanh giỏ -->
     <LinearLayout
-        android:id="@+id/layoutCartBar"
+        android:id="@+id/layoutBottom"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:background="#15151B"
-        android:orientation="horizontal"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
-        android:gravity="center_vertical"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Nút lịch sử giao dịch (luôn hiển thị) -->
         <Button
             android:id="@+id/btnHistory"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Lịch sử giao dịch"
             android:textAllCaps="false"
-            android:layout_margin="16dp"/>
+            android:layout_marginBottom="12dp" />
 
-        <TextView
-            android:id="@+id/tvCartSummary"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="0 món • Tổng: 0 đ"
-            android:textColor="@android:color/white"
-            android:textSize="16sp" />
+        <!-- Thanh giỏ hàng: chỉ hiện khi có món -->
+        <LinearLayout
+            android:id="@+id/layoutCartBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
 
-        <Button
-            android:id="@+id/btnOrderNow"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:text="Đặt món"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:backgroundTint="#FFB74D" />
+            <TextView
+                android:id="@+id/tvCartSummary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0 món • Tổng: 0 đ"
+                android:textColor="@android:color/white"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnOrderNow"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:text="Đặt món"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:backgroundTint="#FFB74D" />
+        </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

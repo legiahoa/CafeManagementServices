@@ -1,8 +1,9 @@
 package com.example.cafemanagementservices.model;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class DonHang {
+public class DonHang implements Serializable {
     public static final String PT_TIEN_MAT = "TIEN_MAT";
     public static final String PT_MOMO     = "MOMO";
     public static final String PT_ZALOPAY  = "ZALOPAY";

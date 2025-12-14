@@ -53,6 +53,12 @@
         <activity
             android:name=".customer.CheckoutActivity"
             android:exported="false" />
+        <activity
+            android:name=".customer.HistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".customer.CustomerOrderDetailActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

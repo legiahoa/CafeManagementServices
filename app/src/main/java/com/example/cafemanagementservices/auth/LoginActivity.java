@@ -76,8 +76,7 @@ public class LoginActivity extends AppCompatActivity {
                         btnLogin.setEnabled(true);
 
                         if (!snapshot.hasChildren()) {
-                            Toast.makeText(LoginActivity.this,
-                                    "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(LoginActivity.this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
                             return;
                         }
 
@@ -105,15 +104,13 @@ public class LoginActivity extends AppCompatActivity {
                             }
                         }
 
-                        Toast.makeText(LoginActivity.this,
-                                "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(LoginActivity.this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         btnLogin.setEnabled(true);
-                        Toast.makeText(LoginActivity.this,
-                                "Lỗi: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(LoginActivity.this, "Lỗi: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
