@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -17,11 +18,15 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.adapter.BillAdapter;
 import com.example.cafemanagementservices.firebase.FirebaseService;
+import com.example.cafemanagementservices.model.Ban; // Import Model Ban
 import com.example.cafemanagementservices.model.CartItem;
 import com.example.cafemanagementservices.model.ChiTietMon;
 import com.example.cafemanagementservices.model.DonHang;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -35,14 +40,17 @@ public class CheckoutActivity extends AppCompatActivity {
     public static final String EXTRA_USER_NAME = "user_name";
     public static final String EXTRA_USER_ID = "extra_user_id";
 
-    private Button btnBack;
-    private TextView tvBillTotal;
-    private Button btnThanhToan;
+    private Button btnBack, btnThanhToan, btnSelectTable; // Thêm nút chọn bàn
+    private TextView tvBillTotal, tvSelectedTable;        // Thêm Text hiển thị bàn
     private RecyclerView rvBillItems;
 
     private final ArrayList<CartItem> cartItems = new ArrayList<>();
     private String currentUserName;
     private String currentUserId;
+
+    // Biến lưu bàn được chọn
+    private String selectedBanId = null;
+    private String selectedBanName = "Mang về"; // Mặc định là mang về
 
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
@@ -58,6 +66,9 @@ public class CheckoutActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> confirmBackToMenu());
         btnThanhToan.setOnClickListener(v -> showPaymentSheet());
+
+        // Sự kiện chọn bàn
+        btnSelectTable.setOnClickListener(v -> showTableSelectionDialog());
     }
 
     private void bindViews() {
@@ -65,6 +76,56 @@ public class CheckoutActivity extends AppCompatActivity {
         tvBillTotal = findViewById(R.id.tvBillTotal);
         btnThanhToan = findViewById(R.id.btnThanhToan);
         rvBillItems = findViewById(R.id.rvBillItems);
+
+        // Ánh xạ view mới thêm
+        btnSelectTable = findViewById(R.id.btnSelectTableCheckout);
+        tvSelectedTable = findViewById(R.id.tvSelectedTableCheckout);
+    }
+
+    // Logic hiển thị Dialog chọn bàn (Lấy từ CartActivity cũ sang)
+    private void showTableSelectionDialog() {
+        FirebaseService.getBanRef().addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                ArrayList<Ban> listBan = new ArrayList<>();
+                ArrayList<String> listTen = new ArrayList<>();
+
+                // Thêm tùy chọn "Mang về" đầu tiên
+                listTen.add("Mang về");
+                listBan.add(null); // null đại diện cho mang về
+
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    Ban b = child.getValue(Ban.class);
+                    // Chỉ hiển thị bàn Trống
+                    if (b != null && "Trong".equals(b.trangThai)) {
+                        b.id = child.getKey();
+                        listBan.add(b);
+                        listTen.add(b.tenBan + " (" + b.khuVuc + ")");
+                    }
+                }
+
+                new AlertDialog.Builder(CheckoutActivity.this)
+                        .setTitle("Chọn vị trí ngồi")
+                        .setItems(listTen.toArray(new String[0]), (dialog, which) -> {
+                            if (which == 0) {
+                                // Chọn Mang về
+                                selectedBanId = null;
+                                selectedBanName = "Mang về";
+                            } else {
+                                Ban selected = listBan.get(which);
+                                selectedBanId = selected.id;
+                                selectedBanName = selected.tenBan;
+                            }
+                            tvSelectedTable.setText("Bàn: " + selectedBanName);
+                        })
+                        .show();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(CheckoutActivity.this, "Lỗi tải bàn: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void getDataFromIntent() {
@@ -139,28 +200,11 @@ public class CheckoutActivity extends AppCompatActivity {
     private void createOrder(String paymentMethod) {
         if (cartItems.isEmpty()) return;
 
-        if (currentUserId != null && !currentUserId.trim().isEmpty()) {
-            FirebaseService.getTaiKhoanRef().child(currentUserId).child("hoTen")
-                    .get()
-                    .addOnSuccessListener(snap -> {
-                        String hoTen = snap.getValue(String.class);
-                        if (hoTen == null || hoTen.trim().isEmpty()) hoTen = currentUserName;
-                        if (hoTen == null || hoTen.trim().isEmpty()) hoTen = "Khách lẻ";
-                        saveOrder(paymentMethod, hoTen.trim());
-                    })
-                    .addOnFailureListener(e -> {
-                        String hoTen = (currentUserName != null && !currentUserName.trim().isEmpty())
-                                ? currentUserName.trim()
-                                : "Khách lẻ";
-                        saveOrder(paymentMethod, hoTen);
-                    });
-            return;
-        }
+        // Lấy tên khách hàng
+        String finalName = (currentUserName != null && !currentUserName.trim().isEmpty())
+                ? currentUserName : "Khách lẻ";
 
-        String hoTen = (currentUserName != null && !currentUserName.trim().isEmpty())
-                ? currentUserName.trim()
-                : "Khách lẻ";
-        saveOrder(paymentMethod, hoTen);
+        saveOrder(paymentMethod, finalName);
     }
 
     private void saveOrder(String paymentMethod, String displayName) {
@@ -174,22 +218,18 @@ public class CheckoutActivity extends AppCompatActivity {
 
         DatabaseReference donHangRef = FirebaseService.getDonHangRef();
         String orderId = donHangRef.push().getKey();
-        if (orderId == null) {
-            Toast.makeText(this, "Không tạo được ID đơn hàng", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (orderId == null) return;
 
         String now = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 .format(new java.util.Date());
 
-        String status = "Tiền mặt".equalsIgnoreCase(paymentMethod)
-                ? "Chờ thu tiền"
-                : "Đã thanh toán";
+        String status = "Tiền mặt".equalsIgnoreCase(paymentMethod) ? "Chờ thu tiền" : "Đã thanh toán";
 
         DonHang dh = new DonHang();
         dh.id = orderId;
         dh.userId = currentUserId;
-        dh.tenBan = "Mang về";
+        dh.tenBan = selectedBanName; // Sử dụng tên bàn đã chọn
+        dh.banId = selectedBanId;    // Sử dụng ID bàn đã chọn
         dh.tenKhachHang = displayName;
         dh.tongTien = tongTien;
         dh.thoiGian = now;
@@ -199,9 +239,12 @@ public class CheckoutActivity extends AppCompatActivity {
 
         donHangRef.child(orderId).setValue(dh)
                 .addOnSuccessListener(unused -> {
-                    Toast.makeText(this, "Tiền mặt".equalsIgnoreCase(paymentMethod)
-                            ? "Đặt món thành công (chờ thu tiền)"
-                            : "Đặt món & thanh toán thành công", Toast.LENGTH_SHORT).show();
+                    // Nếu đã chọn bàn (không phải Mang về), cập nhật trạng thái bàn thành "CoNguoi"
+                    if (selectedBanId != null) {
+                        FirebaseService.getBanRef().child(selectedBanId).child("trangThai").setValue("CoNguoi");
+                    }
+
+                    Toast.makeText(this, "Đặt món thành công!", Toast.LENGTH_SHORT).show();
 
                     Intent data = new Intent();
                     data.putExtra("clear_cart", true);

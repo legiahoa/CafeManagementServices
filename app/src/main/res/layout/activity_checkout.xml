@@ -10,8 +10,7 @@
         android:id="@+id/layoutToolbar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:orientation="vertical"
         android:padding="16dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -21,11 +20,36 @@
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="Hóa đơn tạm tính"
+            android:text="Xác nhận đơn hàng"
             android:textColor="@android:color/white"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/tvSelectedTableCheckout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Bàn: Mang về (Mặc định)"
+                android:textColor="#B0BEC5"
+                android:textSize="14sp"/>
+
+            <Button
+                android:id="@+id/btnSelectTableCheckout"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Chọn bàn"
+                android:textSize="12sp"
+                android:textColor="@android:color/black"
+                android:backgroundTint="#FFB74D"/>
+        </LinearLayout>
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
