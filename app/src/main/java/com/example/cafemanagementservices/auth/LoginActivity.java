@@ -26,7 +26,6 @@ public class LoginActivity extends AppCompatActivity {
     private MaterialButton btnLogin;
     private TextView tvToRegister;
 
-    private String passwordHash;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,10 +55,14 @@ public class LoginActivity extends AppCompatActivity {
 
         btnLogin.setOnClickListener(v -> doLogin());
     }
+
     private void doLogin() {
         String username = edtUsername.getText() != null ? edtUsername.getText().toString().trim() : "";
         String password = edtPassword.getText() != null ? edtPassword.getText().toString().trim() : "";
-        passwordHash = HashUtils.md5(password);
+
+        // 1. Tính toán Hash của mật khẩu nhập vào
+        String passwordHash = HashUtils.md5(password);
+
         if (username.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Vui lòng nhập đủ tên đăng nhập và mật khẩu", Toast.LENGTH_SHORT).show();
             return;
@@ -76,7 +79,7 @@ public class LoginActivity extends AppCompatActivity {
                         btnLogin.setEnabled(true);
 
                         if (!snapshot.hasChildren()) {
-                            Toast.makeText(LoginActivity.this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(LoginActivity.this, "Tài khoản không tồn tại", Toast.LENGTH_SHORT).show();
                             return;
                         }
 
@@ -84,16 +87,19 @@ public class LoginActivity extends AppCompatActivity {
                             User u = child.getValue(User.class);
                             if (u == null) continue;
 
-                            // giả sử trong Firebase có field "matKhau"
-                            if (u.matKhau != null && u.matKhau.equals(password)) {
-                                u.uid = child.getKey();
+                            // --- SỬA LỖI TẠI ĐÂY ---
+                            // So sánh mật khẩu trong DB với passwordHash (đã mã hóa)
+                            if (u.matKhau != null && u.matKhau.equals(passwordHash)) {
+                                u.uid = child.getKey(); // Lưu lại UID thật
 
+                                // Kiểm tra vai trò để chuyển hướng
                                 if ("KhachHang".equalsIgnoreCase(u.vaiTro)) {
                                     Intent i = new Intent(LoginActivity.this, CustomerHomeActivity.class);
                                     i.putExtra("userId", u.uid);
                                     i.putExtra("userName", u.hoTen);
                                     startActivity(i);
                                 } else {
+                                    // Admin hoặc NhanVien
                                     Intent i = new Intent(LoginActivity.this, AdminDashboardActivity.class);
                                     i.putExtra("userId", u.uid);
                                     i.putExtra("userName", u.hoTen);
@@ -104,13 +110,14 @@ public class LoginActivity extends AppCompatActivity {
                             }
                         }
 
-                        Toast.makeText(LoginActivity.this, "Sai tên đăng nhập hoặc mật khẩu", Toast.LENGTH_SHORT).show();
+                        // Nếu chạy hết vòng lặp mà không khớp mật khẩu
+                        Toast.makeText(LoginActivity.this, "Sai mật khẩu", Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         btnLogin.setEnabled(true);
-                        Toast.makeText(LoginActivity.this, "Lỗi: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(LoginActivity.this, "Lỗi kết nối: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

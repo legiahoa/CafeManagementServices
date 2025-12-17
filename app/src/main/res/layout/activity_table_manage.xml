@@ -7,11 +7,50 @@
     android:background="@drawable/bg_home_gradient"
     android:fitsSystemWindows="true">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvTableManage"
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="8dp"/>
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="80dp"> <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="KHU VỰC TẦNG 1"
+            android:textColor="#FFB74D"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:padding="16dp"
+            android:background="#20000000"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTang1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="KHU VỰC TẦNG 2"
+                android:textColor="#FFB74D"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:padding="16dp"
+                android:layout_marginTop="16dp"
+                android:background="#20000000"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTang2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddTable"
@@ -20,6 +59,6 @@
         android:layout_margin="16dp"
         app:srcCompat="@android:drawable/ic_input_add"
         app:layout_anchorGravity="bottom|end"
-        app:layout_anchor="@id/rvTableManage"/>
+        android:layout_gravity="bottom|end"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
