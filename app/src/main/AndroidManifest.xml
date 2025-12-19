@@ -44,6 +44,22 @@
         <activity android:name=".customer.CheckoutActivity" android:exported="false" />
         <activity android:name=".customer.HistoryActivity" android:exported="false" />
         <activity android:name=".customer.CustomerOrderDetailActivity" android:exported="false" />
+
+        <activity android:name=".payment.PaymentPendingActivity" android:exported="false" />
+
+        <activity
+            android:name=".payment.MomoReturnActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="cafemanagementservices"
+                    android:host="momo-return" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

@@ -10,6 +10,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -18,10 +20,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cafemanagementservices.R;
 import com.example.cafemanagementservices.adapter.BillAdapter;
 import com.example.cafemanagementservices.firebase.FirebaseService;
-import com.example.cafemanagementservices.model.Ban; // Import Model Ban
+import com.example.cafemanagementservices.model.Ban;
 import com.example.cafemanagementservices.model.CartItem;
 import com.example.cafemanagementservices.model.ChiTietMon;
 import com.example.cafemanagementservices.model.DonHang;
+import com.example.cafemanagementservices.payment.MomoBackendClient;
+import com.example.cafemanagementservices.payment.PaymentPendingActivity;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -35,22 +39,28 @@ import java.util.Locale;
 import java.util.Map;
 
 public class CheckoutActivity extends AppCompatActivity {
+    private String getMomoCreateUrl() {
+        String s = getString(R.string.momo_create_url);
+        return s != null ? s.trim() : "";
+    }
+
+    private ActivityResultLauncher<Intent> momoPendingLauncher;
+    private AlertDialog momoLoadingDialog;
 
     public static final String EXTRA_CART = "cart_items";
     public static final String EXTRA_USER_NAME = "user_name";
     public static final String EXTRA_USER_ID = "extra_user_id";
 
-    private Button btnBack, btnThanhToan, btnSelectTable; // Thêm nút chọn bàn
-    private TextView tvBillTotal, tvSelectedTable;        // Thêm Text hiển thị bàn
+    private Button btnBack, btnThanhToan, btnSelectTable;
+    private TextView tvBillTotal, tvSelectedTable;
     private RecyclerView rvBillItems;
 
     private final ArrayList<CartItem> cartItems = new ArrayList<>();
     private String currentUserName;
     private String currentUserId;
 
-    // Biến lưu bàn được chọn
     private String selectedBanId = null;
-    private String selectedBanName = "Mang về"; // Mặc định là mang về
+    private String selectedBanName = "Mang về";
 
     private final DecimalFormat fmt = new DecimalFormat("#,### đ");
 
@@ -64,10 +74,25 @@ public class CheckoutActivity extends AppCompatActivity {
         setupRecycler();
         updateTotal();
 
+        momoPendingLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        boolean clearCart = result.getData().getBooleanExtra("clear_cart", false);
+                        if (clearCart) {
+                            Intent data = new Intent();
+                            data.putExtra("clear_cart", true);
+                            setResult(RESULT_OK, data);
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(this, "Thanh toán chưa hoàn tất", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
         btnBack.setOnClickListener(v -> confirmBackToMenu());
         btnThanhToan.setOnClickListener(v -> showPaymentSheet());
-
-        // Sự kiện chọn bàn
         btnSelectTable.setOnClickListener(v -> showTableSelectionDialog());
     }
 
@@ -77,12 +102,10 @@ public class CheckoutActivity extends AppCompatActivity {
         btnThanhToan = findViewById(R.id.btnThanhToan);
         rvBillItems = findViewById(R.id.rvBillItems);
 
-        // Ánh xạ view mới thêm
         btnSelectTable = findViewById(R.id.btnSelectTableCheckout);
         tvSelectedTable = findViewById(R.id.tvSelectedTableCheckout);
     }
 
-    // Logic hiển thị Dialog chọn bàn (Lấy từ CartActivity cũ sang)
     private void showTableSelectionDialog() {
         FirebaseService.getBanRef().addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -90,13 +113,11 @@ public class CheckoutActivity extends AppCompatActivity {
                 ArrayList<Ban> listBan = new ArrayList<>();
                 ArrayList<String> listTen = new ArrayList<>();
 
-                // Thêm tùy chọn "Mang về" đầu tiên
                 listTen.add("Mang về");
-                listBan.add(null); // null đại diện cho mang về
+                listBan.add(null);
 
                 for (DataSnapshot child : snapshot.getChildren()) {
                     Ban b = child.getValue(Ban.class);
-                    // Chỉ hiển thị bàn Trống
                     if (b != null && "Trong".equals(b.trangThai)) {
                         b.id = child.getKey();
                         listBan.add(b);
@@ -108,7 +129,6 @@ public class CheckoutActivity extends AppCompatActivity {
                         .setTitle("Chọn vị trí ngồi")
                         .setItems(listTen.toArray(new String[0]), (dialog, which) -> {
                             if (which == 0) {
-                                // Chọn Mang về
                                 selectedBanId = null;
                                 selectedBanName = "Mang về";
                             } else {
@@ -200,7 +220,6 @@ public class CheckoutActivity extends AppCompatActivity {
     private void createOrder(String paymentMethod) {
         if (cartItems.isEmpty()) return;
 
-        // Lấy tên khách hàng
         String finalName = (currentUserName != null && !currentUserName.trim().isEmpty())
                 ? currentUserName : "Khách lẻ";
 
@@ -217,19 +236,27 @@ public class CheckoutActivity extends AppCompatActivity {
         }
 
         DatabaseReference donHangRef = FirebaseService.getDonHangRef();
-        String orderId = donHangRef.push().getKey();
+        String orderId = genMomoOrderId();
         if (orderId == null) return;
 
         String now = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 .format(new java.util.Date());
 
-        String status = "Tiền mặt".equalsIgnoreCase(paymentMethod) ? "Chờ thu tiền" : "Đã thanh toán";
+        String status;
+        if ("Tiền mặt".equalsIgnoreCase(paymentMethod)) {
+            status = "Chờ thu tiền";
+        } else if ("MoMo".equalsIgnoreCase(paymentMethod)) {
+            status = "Chờ thanh toán";
+        } else {
+            // ZaloPay chưa làm flow => đừng set "Đã thanh toán" để tránh sai trạng thái
+            status = "Chờ xử lý";
+        }
 
         DonHang dh = new DonHang();
         dh.id = orderId;
         dh.userId = currentUserId;
-        dh.tenBan = selectedBanName; // Sử dụng tên bàn đã chọn
-        dh.banId = selectedBanId;    // Sử dụng ID bàn đã chọn
+        dh.tenBan = selectedBanName;
+        dh.banId = selectedBanId;
         dh.tenKhachHang = displayName;
         dh.tongTien = tongTien;
         dh.thoiGian = now;
@@ -237,21 +264,116 @@ public class CheckoutActivity extends AppCompatActivity {
         dh.phuongThucThanhToan = paymentMethod;
         dh.items = itemsMap;
 
+        final long tongTienFinal = tongTien;
+
         donHangRef.child(orderId).setValue(dh)
                 .addOnSuccessListener(unused -> {
-                    // Nếu đã chọn bàn (không phải Mang về), cập nhật trạng thái bàn thành "CoNguoi"
                     if (selectedBanId != null) {
                         FirebaseService.getBanRef().child(selectedBanId).child("trangThai").setValue("CoNguoi");
                     }
 
-                    Toast.makeText(this, "Đặt món thành công!", Toast.LENGTH_SHORT).show();
-
-                    Intent data = new Intent();
-                    data.putExtra("clear_cart", true);
-                    setResult(RESULT_OK, data);
-                    finish();
+                    if ("MoMo".equalsIgnoreCase(paymentMethod)) {
+                        Toast.makeText(this, "Đã tạo đơn, chuyển sang MoMo...", Toast.LENGTH_SHORT).show();
+                        startMomoPayment(orderId, tongTienFinal);
+                    } else {
+                        Toast.makeText(this, "Đặt món thành công!", Toast.LENGTH_SHORT).show();
+                        Intent data = new Intent();
+                        data.putExtra("clear_cart", true);
+                        setResult(RESULT_OK, data);
+                        finish();
+                    }
                 })
                 .addOnFailureListener(e ->
                         Toast.makeText(this, "Lỗi tạo đơn: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void startMomoPayment(String orderId, long amount) {
+        if (momoLoadingDialog == null) {
+            momoLoadingDialog = new AlertDialog.Builder(this)
+                    .setTitle("MoMo")
+                    .setMessage("Đang tạo giao dịch...")
+                    .setCancelable(false)
+                    .create();
+        }
+        momoLoadingDialog.show();
+
+        String createUrl = getMomoCreateUrl();
+        if (createUrl.isEmpty() || createUrl.contains("YOUR_NGROK_DOMAIN")) {
+            if (momoLoadingDialog.isShowing()) momoLoadingDialog.dismiss();
+            FirebaseService.getDonHangRef().child(orderId).child("trangThai").setValue("Thanh toán lỗi");
+            Toast.makeText(this, "Bạn chưa cấu hình momo_create_url (ngrok).", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String orderInfo = "Thanh toán đơn " + orderId;
+
+        MomoBackendClient.createPayment(
+                createUrl,
+                orderId,
+                amount,
+                orderInfo,
+                new MomoBackendClient.Callback() {
+                    @Override
+                    public void onSuccess(MomoBackendClient.CreatePaymentResult r) {
+                        if (momoLoadingDialog != null && momoLoadingDialog.isShowing()) {
+                            momoLoadingDialog.dismiss();
+                        }
+
+                        // ✅ 1) Check resultCode từ backend
+                        if (r.resultCode != null && r.resultCode != 0) {
+                            FirebaseService.getDonHangRef().child(orderId).child("trangThai")
+                                    .setValue("Thanh toán lỗi");
+                            Toast.makeText(CheckoutActivity.this,
+                                    "MoMo lỗi (" + r.resultCode + "): " + (r.message != null ? r.message : ""),
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
+                        // ✅ 2) Check link rỗng
+                        boolean emptyPayUrl = (r.payUrl == null || r.payUrl.trim().isEmpty());
+                        boolean emptyDeep = (r.deeplink == null || r.deeplink.trim().isEmpty());
+                        if (emptyPayUrl && emptyDeep) {
+                            FirebaseService.getDonHangRef().child(orderId).child("trangThai")
+                                    .setValue("Thanh toán lỗi");
+                            Toast.makeText(CheckoutActivity.this,
+                                    "Không nhận được link thanh toán từ server.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
+                        // Lưu link về Firebase (debug/audit)
+                        java.util.Map<String, Object> upd = new java.util.HashMap<>();
+                        if (r.requestId != null) upd.put("momoRequestId", r.requestId);
+                        if (r.payUrl != null) upd.put("momoPayUrl", r.payUrl);
+                        if (r.deeplink != null) upd.put("momoDeeplink", r.deeplink);
+                        if (r.message != null) upd.put("momoCreateMessage", r.message);
+                        if (r.resultCode != null) upd.put("momoCreateResultCode", r.resultCode);
+                        FirebaseService.getDonHangRef().child(orderId).updateChildren(upd);
+
+                        Intent it = new Intent(CheckoutActivity.this, PaymentPendingActivity.class);
+                        it.putExtra(PaymentPendingActivity.EXTRA_ORDER_ID, orderId);
+                        it.putExtra(PaymentPendingActivity.EXTRA_PAY_URL, r.payUrl);
+                        it.putExtra(PaymentPendingActivity.EXTRA_DEEPLINK, r.deeplink);
+                        momoPendingLauncher.launch(it);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (momoLoadingDialog != null && momoLoadingDialog.isShowing()) {
+                            momoLoadingDialog.dismiss();
+                        }
+                        FirebaseService.getDonHangRef().child(orderId).child("trangThai")
+                                .setValue("Thanh toán lỗi");
+                        Toast.makeText(CheckoutActivity.this,
+                                "Không tạo được MoMo: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+        );
+    }
+    private static String genMomoOrderId() {
+        long ts = System.currentTimeMillis();
+        int rnd = (int)(Math.random() * 9000) + 1000;
+        return "DH" + ts + rnd;
     }
 }

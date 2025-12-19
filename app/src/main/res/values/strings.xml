@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Cafe Management Services</string>
+    <string name="momo_create_url">https://add8fe15d55b.ngrok-free.app/momo/create</string>
 </resources>

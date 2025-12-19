@@ -25,5 +25,16 @@ public class DonHang implements Serializable {
     public Map<String, OrderItem> danhSachMon;
     public String phuongThucThanhToan;
     public Map<String, ChiTietMon> items;
+
+    // --- MoMo fields (optional, to track payment) ---
+    public String momoRequestId;
+    public String momoPayUrl;
+    public String momoDeeplink;
+    public Long momoTransId;
+    public Integer momoResultCode;
+    public String momoMessage;
+    public String momoPayType;
+    public Long momoResponseTime;
+
     public DonHang() {}
 }
